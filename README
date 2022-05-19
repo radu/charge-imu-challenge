@@ -1,0 +1,57 @@
+# DEPENDENCIES
+pip install pandas numpy pyopengl pygame
+
+# TO RUN
+
+to run gyro-only or accel-only visualization:
+  python imu.py gyro
+  python imu.py accel
+
+to run the fused system
+  python imu.py 
+
+# NOTES
+
+Using quaternions to represent rotations to avoid singularities / gimbal lock issues.
+
+## Accelerometer attitude
+
+Simple accel-only attiude estimation can be done just from the acceleration vectors:
+  θ = arctan2(ay,az)
+  ϕ = arctan2(−ax,√(ay*ay+az*az))
+
+No heading angle is available since we don't have a magneto.
+
+To obtain the quaternion, we use the last formula from:
+  https://ahrs.readthedocs.io/en/latest/filters/tilt.html
+
+## Gyro attitude
+
+Gyro-only attitude can be calculated by attitude propagation - integration over time of the derivative 
+of the quaternion which can be calculated from the angular rates:
+  https://ahrs.readthedocs.io/en/latest/filters/angular.html
+
+To fuse the two, the simplest method is to use a complementary filter, which essentially low-pass filters the accelerometer
+and high-pass filters the gyro:
+  https://ahrs.readthedocs.io/en/latest/filters/complementary.html
+
+Unfortunately because we don't have a good heading estimate from the accelerometer, it means that we have a choice to either:
+ - discard the heading - not very nice
+ - use only the gyro to accumulate the heading ( will drift )
+   
+A quick imlementation of the complementary filter with gyro-only heading runs into the issue that the signs of the
+yaw/pitch/roll from state propagation don't match the ones after fusion when the device is upside-down - something 
+that needs to be debugged.  (to try, comment the h=0 at line 97)
+
+Next steps: 
+ - implement a full Extended Kalman Filter, which would mean building a noise model for the gyro and accel and 
+estimating the accel noise and gyro bias as hidden states - would be fun to do but most likely to use an existing
+library
+ - convert to C++ or something faster so it has a chance of running real-time on an embedded device at full update rates
+
+Other resources used:
+Quaternion-to-euler conversion from wikipedia:
+  https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
+
+OpenGL cube rendering from here:
+  https://github.com/thecountoftuscany/PyTeapot-Quaternion-Euler-cube-rotation/blob/master/pyteapot.py
